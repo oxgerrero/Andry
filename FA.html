@@ -1,0 +1,224 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Andry Fuegos Artificiales</title>
+  <link href="https://fonts.googleapis.com/css2?family=Pacifico&display=swap" rel="stylesheet">
+  <style>
+    html, body {
+      margin: 0;
+      padding: 0;
+      overflow: hidden;
+      height: 100%;
+      background: #000;
+      background-image: url('https://i.pinimg.com/736x/85/de/fa/85defa083bf3c3c4eb809010a24810f2.jpg');
+      background-size: cover;
+      background-position: center;
+      background-repeat: no-repeat;
+    }
+
+    canvas {
+      position: absolute;
+      top: 0;
+      left: 0;
+      z-index: 0;
+    }
+
+    .andry {
+      position: absolute;
+      font-family: 'Pacifico', cursive;
+      font-size: 26px;
+      font-weight: bold;
+      text-shadow: 0 0 10px rgba(255, 255, 255, 0.6);
+      opacity: 1;
+      animation: flotar 6s ease-out forwards;
+      pointer-events: none;
+      z-index: 5;
+    }
+
+    @keyframes flotar {
+      0% { transform: translateY(0) scale(1); opacity: 1; }
+      100% { transform: translateY(-120px) scale(1.4); opacity: 0; }
+    }
+  </style>
+</head>
+<body>
+  <canvas id="fireworks"></canvas>
+
+  <!-- Música de fondo -->
+  <audio id="musica" preload="auto" loop>
+    <source src="musica.mp3" type="audio/mpeg" />
+  </audio>
+
+  <!-- Sonido de explosión -->
+  <audio id="explosion" preload="auto">
+    <source src="explosion.mp3" type="audio/mpeg" />
+  </audio>
+
+  <script>
+    const canvas = document.getElementById("fireworks");
+    const ctx = canvas.getContext("2d");
+    canvas.width = window.innerWidth;
+    canvas.height = window.innerHeight;
+
+    const fireworks = [];
+    const explosionSound = document.getElementById("explosion");
+    const musica = document.getElementById("musica");
+
+    function activarMusica() {
+      musica.play().catch(() => {});
+      document.removeEventListener("click", activarMusica);
+      document.removeEventListener("touchstart", activarMusica);
+    }
+
+    document.addEventListener("click", activarMusica);
+    document.addEventListener("touchstart", activarMusica);
+
+    function random(min, max) {
+      return Math.random() * (max - min) + min;
+    }
+
+    class HeartParticle {
+      constructor(x, y, angle, color) {
+        const t = angle;
+        const size = 10;
+        this.x = x;
+        this.y = y;
+        this.vx = size * 16 * Math.pow(Math.sin(t), 3) * 0.06;
+        this.vy = -size * (13 * Math.cos(t) - 5 * Math.cos(2 * t) - 2 * Math.cos(3 * t) - Math.cos(4 * t)) * 0.06;
+        this.alpha = 1;
+        this.color = color;
+        this.size = 6;
+      }
+
+      update() {
+        this.x += this.vx;
+        this.y += this.vy;
+        this.vx *= 0.975;
+        this.vy *= 0.975;
+        this.alpha -= 0.003; // Desvanecimiento lento
+      }
+
+      drawHeart(ctx, x, y, size, color, alpha) {
+        ctx.save();
+        ctx.translate(x, y);
+        ctx.scale(size, size);
+        ctx.beginPath();
+        ctx.moveTo(0, 0);
+        ctx.bezierCurveTo(0, -3, -5, -3, -5, 0);
+        ctx.bezierCurveTo(-5, 3, 0, 5, 0, 7);
+        ctx.bezierCurveTo(0, 5, 5, 3, 5, 0);
+        ctx.bezierCurveTo(5, -3, 0, -3, 0, 0);
+        ctx.closePath();
+        ctx.fillStyle = color;
+        ctx.globalAlpha = alpha;
+        ctx.fill();
+        ctx.globalAlpha = 1;
+        ctx.restore();
+      }
+
+      draw() {
+        if (this.alpha <= 0) return;
+        this.drawHeart(ctx, this.x, this.y, this.size / 10, this.color, this.alpha);
+      }
+    }
+
+    class Firework {
+      constructor(x, y) {
+        this.x = x;
+        this.y = canvas.height;
+        this.targetY = y;
+        this.exploded = false;
+        this.particles = [];
+        this.color = `hsl(${Math.floor(random(0, 360))}, 100%, 70%)`;
+      }
+
+      update() {
+        if (!this.exploded) {
+          this.y -= 4; // Subida lenta
+          if (this.y <= this.targetY) {
+            this.exploded = true;
+            for (let a = 0; a < Math.PI * 2; a += 0.06) {
+              this.particles.push(new HeartParticle(this.x, this.y, a, this.color));
+            }
+            for (let i = 0; i < 1; i++) {
+              crearTextoANDRY(this.x + random(-50, 50), this.y + random(-30, 30), this.color);
+            }
+          }
+        }
+      }
+
+      draw() {
+        if (!this.exploded) {
+          ctx.beginPath();
+          ctx.arc(this.x, this.y, 3, 0, Math.PI * 2);
+          ctx.fillStyle = this.color;
+          ctx.fill();
+        }
+        this.particles.forEach(p => {
+          p.update();
+          p.draw();
+        });
+      }
+    }
+
+    function crearTextoANDRY(x, y, color) {
+      const texto = document.createElement("div");
+      texto.className = "andry";
+      texto.innerText = "ANDRY😍";
+      texto.style.left = `${x}px`;
+      texto.style.top = `${y}px`;
+      texto.style.color = color;
+      document.body.appendChild(texto);
+      setTimeout(() => texto.remove(), 6000); // más tiempo visible
+    }
+
+    function lanzarFuego(x, y) {
+      explosionSound.currentTime = 0;
+      explosionSound.play();
+      fireworks.push(new Firework(x, y));
+    }
+
+    function animate() {
+      ctx.fillStyle = "rgba(0, 0, 0, 0.2)";
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+      for (let i = fireworks.length - 1; i >= 0; i--) {
+        fireworks[i].update();
+        fireworks[i].draw();
+        if (fireworks[i].exploded && fireworks[i].particles.every(p => p.alpha <= 0)) {
+          fireworks.splice(i, 1);
+        }
+      }
+
+      requestAnimationFrame(animate);
+    }
+
+    function getTouchPos(e) {
+      if (e.touches) {
+        return { x: e.touches[0].clientX, y: e.touches[0].clientY };
+      } else {
+        return { x: e.clientX, y: e.clientY };
+      }
+    }
+
+    document.addEventListener("click", e => {
+      const pos = getTouchPos(e);
+      lanzarFuego(pos.x, pos.y);
+    });
+
+    document.addEventListener("touchstart", e => {
+      const pos = getTouchPos(e);
+      lanzarFuego(pos.x, pos.y);
+    });
+
+    window.addEventListener("resize", () => {
+      canvas.width = window.innerWidth;
+      canvas.height = window.innerHeight;
+    });
+
+    animate();
+  </script>
+</body>
+</html>
